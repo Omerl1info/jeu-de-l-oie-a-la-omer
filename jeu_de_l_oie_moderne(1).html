@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de l'Oie Ultime & Personnalisable</title>
+    <!-- Tailwind CSS pour un design moderne -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(0, 1fr));
+            grid-template-rows: repeat(7, minmax(0, 1fr));
+            gap: 4px;
+        }
+        @keyframes bounceSlow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-bounce-slow {
+            animation: bounceSlow 1.5s infinite ease-in-out;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.6); }
+            50% { box-shadow: 0 0 30px rgba(234, 179, 8, 0.9); }
+        }
+        .glow-active {
+            animation: pulseGlow 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- En-tête -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700 p-4 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl">🪿</span>
+                <h1 class="text-xl md:text-2xl font-black bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-400 bg-clip-text text-transparent">
+                    Jeu de l'Oie Ultime & Moderne
+                </h1>
+            </div>
+            <div id="game-status-badge" class="hidden px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-semibold text-sm">
+                Partie en cours
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteneur Principal -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+
+        <!-- ÉCRAN 1 : CONFIGURATION DES ÉQUIPES -->
+        <section id="setup-screen" class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 md:p-10 shadow-2xl max-w-2xl mx-auto w-full transition-all">
+            <h2 class="text-2xl md:text-3xl font-extrabold text-amber-400 mb-2 text-center">Paramétrez votre partie</h2>
+            <p class="text-slate-400 text-sm text-center mb-8">Configurez de 2 à 10 équipes, choisissez vos couleurs et votre chiffre secret personnel !</p>
+
+            <div class="space-y-6">
+                <div>
+                    <label for="num-teams" class="block text-sm font-semibold text-slate-300 mb-2">Nombre d'équipes (2 à 10) :</label>
+                    <input type="number" id="num-teams" min="2" max="10" value="3" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-lg font-bold text-white focus:outline-none focus:border-indigo-500 transition-colors">
+                </div>
+
+                <div id="teams-config-container" class="space-y-4 max-h-72 overflow-y-auto pr-2">
+                    <!-- Généré dynamiquement -->
+                </div>
+
+                <button onclick="startGame()" class="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 font-bold text-lg text-white shadow-lg hover:opacity-95 transform active:scale-95 transition-all">
+                    Lancer le Plateau de Jeu 🚀
+                </button>
+            </div>
+        </section>
+
+        <!-- ÉCRAN 2 : PLATEAU DE JEU -->
+        <section id="game-screen" class="hidden flex flex-col xl:flex-row gap-6 w-full">
+            
+            <!-- Colonne Gauche : Plateau Graphique -->
+            <div class="flex-1 bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 md:p-6 shadow-2xl flex flex-col items-center">
+                <div class="flex justify-between w-full mb-4 items-center flex-wrap gap-2">
+                    <h3 class="text-lg font-bold text-amber-300 flex items-center gap-2">🗺️ Plateau de l'Oie (1 à 63)</h3>
+                    <div id="turn-indicator" class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl font-bold text-sm text-indigo-300">
+                        Tour de : <span>-</span>
+                    </div>
+                </div>
+
+                <!-- Grille du Plateau 63 Cases -->
+                <div id="board-grid" class="board-grid w-full aspect-[9/7] max-w-4xl bg-slate-900/80 p-2 rounded-xl border border-slate-700/50 relative overflow-hidden">
+                    <!-- Cases insérées en JS -->
+                </div>
+
+                <!-- Légende -->
+                <div class="flex flex-wrap gap-4 mt-4 text-xs text-slate-400 justify-center">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500"></span> Oie (+ avancer)</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500"></span> Pont / Trajet</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-purple-500"></span> Piège / Puits</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-rose-500"></span> Arrivée (Case 63)</span>
+                </div>
+            </div>
+
+            <!-- Colonne Droite : Commandes, Dés et Actions -->
+            <div class="w-full xl:w-96 flex flex-col gap-6">
+                
+                <!-- Panneau de Lancer de Dés -->
+                <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+                    <h3 class="text-md font-bold text-slate-200 mb-3 flex items-center gap-2">🎲 Lancer de Dés</h3>
+                    <div class="flex items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-700 mb-4">
+                        <div class="text-center flex-1">
+                            <span class="text-xs text-slate-400 block mb-1">Dé 1</span>
+                            <div id="dice-1" class="text-3xl font-black text-amber-400">⚀</div>
+                        </div>
+                        <div class="text-center flex-1 border-x border-slate-800">
+                            <span class="text-xs text-slate-400 block mb-1">Dé 2</span>
+                            <div id="dice-2" class="text-3xl font-black text-amber-400">⚁</div>
+                        </div>
+                        <div class="text-center flex-1">
+                            <span class="text-xs text-slate-400 block mb-1">Total</span>
+                            <div id="dice-total" class="text-xl font-bold text-white">-</div>
+                        </div>
+                    </div>
+                    <button id="roll-btn" onclick="rollDice()" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-md transition-all">
+                        Lancer les Dés 🎲
+                    </button>
+                </div>
+
+                <!-- Panneau Cartes Actions (Mille Bornes) -->
+                <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                    <h3 class="text-md font-bold text-slate-200 mb-2 flex items-center gap-2">🃏 Cartes Actions</h3>
+                    <p class="text-xs text-slate-400 mb-3">Utilisez vos cartes stratégiques à tout moment de votre tour.</p>
+                    <div id="action-cards-container" class="space-y-2 flex-1 max-h-48 overflow-y-auto pr-1">
+                        <!-- Cartes chargées dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Classement et Points -->
+                <div class="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
+                    <h3 class="text-md font-bold text-slate-200 mb-3 flex items-center gap-2">🏆 Classement & Points</h3>
+                    <div id="scoreboard-container" class="space-y-2">
+                        <!-- Scoreboard généré dynamiquement -->
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Modale de Message / Événement / Animation Spéciale -->
+    <div id="event-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center transform transition-all animate-bounce-slow">
+            <div id="modal-icon" class="text-5xl mb-4">✨</div>
+            <h3 id="modal-title" class="text-xl font-bold text-white mb-2">Événement Spécial !</h3>
+            <p id="modal-desc" class="text-slate-300 text-sm mb-6">Description de l'événement en cours...</p>
+            <button onclick="closeModal()" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white shadow-lg transition-all">
+                Continuer
+            </button>
+        </div>
+    </div>
+
+    <!-- Modale de Fin de Partie (Victoire Feux d'artifice & Confettis) -->
+    <div id="victory-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-amber-500 rounded-3xl p-8 max-w-lg w-full shadow-2xl text-center relative overflow-hidden">
+            <div class="absolute -top-10 -left-10 text-7xl opacity-30 animate-pulse">🎆</div>
+            <div class="absolute -bottom-10 -right-10 text-7xl opacity-30 animate-pulse">🎉</div>
+            <div class="text-6xl mb-4 animate-bounce">👑</div>
+            <h2 class="text-3xl font-black text-amber-400 mb-2">VICTOIRE MAGNIFIQUE !</h2>
+            <p id="winner-text" class="text-slate-200 text-lg font-semibold mb-6">L'équipe gagnante est...</p>
+            <button onclick="resetGame()" class="py-4 px-8 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-black text-lg shadow-xl hover:opacity-90 transition-all">
+                Rejouer une Partie 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- Pied de page -->
+    <footer class="bg-slate-800/50 border-t border-slate-700/50 py-3 text-center text-xs text-slate-500">
+        Jeu de l'Oie Moderne & Personnalisable — Conçu avec passion 🪿✨
+    </footer>
+
+    <!-- Script Logique du Jeu -->
+    <script>
+        // Variables d'état du jeu
+        let teams = [];
+        let currentTurnIndex = 0;
+        let gameActive = false;
+
+        // Définition des types de cases spéciales du Jeu de l'Oie
+        const specialCases = {
+            6: { type: 'bridge', name: 'Le Pont', desc: 'Avancez directement à la case 12 !', target: 12 },
+            19: { type: 'inn', name: 'L’Hôtel', desc: 'Pause ! Vous passez un tour.' },
+            31: { type: 'well', name: 'Le Puits', desc: 'Bloqué jusqu’à ce qu’un autre joueur vienne vous délivrer.' },
+            42: { type: 'labyrinth', name: 'Le Labyrinthe', desc: 'Oh non, retour à la case 30 !', target: 30 },
+            52: { type: 'prison', name: 'La Prison', desc: 'Bloqué pour 2 tours.' },
+            58: { type: 'death', name: 'La Tête de Mort', desc: 'Catastrophe ! Retour à la case départ (1).' , target: 1 }
+        };
+
+        // Cartes actions disponibles (façon Mille Bornes)
+        const availableActionCards = [
+            { id: 'boost_2', name: 'Turbo +2', desc: 'Avance immédiatement de 2 cases.', type: 'move', value: 2 },
+            { id: 'boost_4', name: 'Super Turbo +4', desc: 'Avance immédiatement de 4 cases.', type: 'move', value: 4 },
+            { id: 'retreat_2', name: 'Embouteillage -2', desc: 'Recule un adversaire choisi de 2 cases.', type: 'attack', value: -2 },
+            { id: 'immunity', name: 'Bouclier Antichute', desc: 'Protège contre le prochain recul ou pénalité.', type: 'shield', value: 1 }
+        ];
+
+        // Initialisation de l'interface de configuration au chargement
+        window.onload = function() {
+            renderTeamInputs();
+            document.getElementById('num-teams').addEventListener('input', renderTeamInputs);
+        };
+
+        function renderTeamInputs() {
+            const count = parseInt(document.getElementById('num-teams').value);
+            const container = document.getElementById('teams-config-container');
+            container.innerHTML = '';
+
+            const defaultColors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#d946ef', '#64748b'];
+            
+            for (let i = 0; i < count; i++) {
+                const teamDiv = document.createElement('div');
+                teamDiv.className = 'bg-slate-900/60 border border-slate-700/60 p-3 rounded-xl flex items-center gap-3';
+                teamDiv.innerHTML = `
+                    <div class="w-6 h-6 rounded-full flex-shrink-0" style="background-color: ${defaultColors[i % defaultColors.length]};"></div>
+                    <input type="text" value="Équipe ${i + 1}" id="team-name-${i}" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-semibold text-white flex-1 focus:outline-none focus:border-indigo-500">
+                    <div class="flex items-center gap-1">
+                        <label class="text-xs text-slate-400">Chiffre Secret:</label>
+                        <input type="number" min="2" max="9" value="${(i % 5) + 3}" id="team-secret-${i}" class="w-14 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm font-bold text-amber-400 text-center focus:outline-none">
+                    </div>
+                `;
+                container.appendChild(teamDiv);
+            }
+        }
+
+        function startGame() {
+            const count = parseInt(document.getElementById('num-teams').value);
+            teams = [];
+            const defaultColors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#d946ef', '#64748b'];
+
+            for (let i = 0; i < count; i++) {
+                const name = document.getElementById(`team-name-${i}`).value || `Équipe ${i + 1}`;
+                const secret = parseInt(document.getElementById(`team-secret-${i}`).value) || 5;
+                teams.push({
+                    id: i,
+                    name: name,
+                    color: defaultColors[i % defaultColors.length],
+                    position: 1,
+                    secretNumber: secret,
+                    avoidCount: 0, // Compteur pour éviter de reculer (au bout de 3 -> +1 point)
+                    points: 0,
+                    skipTurns: 0,
+                    shield: false,
+                    cards: [availableActionCards[0], availableActionCards[2]] // 2 cartes de départ
+                });
+            }
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('game-status-badge').classList.remove('hidden');
+
+            gameActive = true;
+            currentTurnIndex = 0;
+            renderBoard();
+            updateGameUI();
+        }
+
+        // Construction visuelle du plateau (Cases 1 à 63)
+        function renderBoard() {
+            const grid = document.getElementById('board-grid');
+            grid.innerHTML = '';
+
+            for (let i = 1; i <= 63; i++) {
+                const cell = document.createElement('div');
+                cell.id = `cell-${i}`;
+                cell.className = `bg-slate-800/90 border border-slate-700/60 rounded-xl p-1 flex flex-col justify-between relative transition-all min-h-[55px]`;
+                
+                // Coloration spéciale des cases oies (tous les 9)
+                if (i % 9 === 0 && i < 63) {
+                    cell.classList.add('bg-amber-500/20', 'border-amber-500/50');
+                }
+                if (i === 63) {
+                    cell.classList.add('bg-rose-600/30', 'border-rose-500');
+                }
+
+                // Numéro de case
+                let markerHtml = `<span class="text-[10px] font-bold text-slate-400">${i}</span>`;
+                if (specialCases[i]) {
+                    markerHtml += `<span class="text-[9px] font-extrabold text-indigo-300 block">${specialCases[i].name}</span>`;
+                }
+
+                // Conteneur des pions présents sur la case
+                const tokensDiv = document.createElement('div');
+                tokensDiv.id = `tokens-cell-${i}`;
+                tokensDiv.className = 'flex flex-wrap gap-1 items-center justify-center mt-auto';
+
+                cell.innerHTML = markerHtml;
+                cell.appendChild(tokensDiv);
+                grid.appendChild(cell);
+            }
+            updateTokensOnBoard();
+        }
+
+        function updateTokensOnBoard() {
+            // Nettoyer tous les conteneurs de pions
+            for (let i = 1; i <= 63; i++) {
+                const tDiv = document.getElementById(`tokens-cell-${i}`);
+                if (tDiv) tDiv.innerHTML = '';
+            }
+
+            // Placer chaque équipe sur sa case
+            teams.forEach(team => {
+                const tDiv = document.getElementById(`tokens-cell-${team.position}`);
+                if (tDiv) {
+                    const tokenSpan = document.createElement('span');
+                    tokenSpan.className = 'w-5 h-5 rounded-full shadow-lg border-2 border-white flex items-center justify-center text-[10px] font-black transform hover:scale-125 transition-transform';
+                    tokenSpan.style.backgroundColor = team.color;
+                    tokenSpan.style.color = '#fff';
+                    tokenSpan.title = team.name;
+                    tokenSpan.innerText = team.name.charAt(0).toUpperCase();
+                    tDiv.appendChild(tokenSpan);
+                }
+            });
+        }
+
+        // Mise à jour de l'interface des scores et tours
+        function updateGameUI() {
+            const currentTeam = teams[currentTurnIndex];
+            document.getElementById('turn-indicator').innerHTML = `Tour de : <span style="color: ${currentTeam.color}; font-weight: 900;">${currentTeam.name}</span> (Chiffre secret: ${currentTeam.secretNumber})`;
+
+            // Scoreboard
+            const sbContainer = document.getElementById('scoreboard-container');
+            sbContainer.innerHTML = '';
+            teams.forEach((t, idx) => {
+                const item = document.createElement('div');
+                item.className = `flex justify-between items-center p-2 rounded-xl text-xs ${idx === currentTurnIndex ? 'bg-indigo-950/60 border border-indigo-500/50' : 'bg-slate-900/40'}`;
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full" style="background-color: ${t.color};"></span>
+                        <span class="font-bold text-white">${t.name}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-400">Case: <strong class="text-amber-400">${t.position}</strong></span>
+                        <span class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md font-bold">⭐ ${t.points} pts</span>
+                    </div>
+                `;
+                sbContainer.appendChild(item);
+            });
+
+            // Cartes actions du joueur actif
+            renderActionCards();
+        }
+
+        function renderActionCards() {
+            const currentTeam = teams[currentTurnIndex];
+            const container = document.getElementById('action-cards-container');
+            container.innerHTML = '';
+
+            if (currentTeam.cards.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Aucune carte action disponible.</p>`;
+                return;
+            }
+
+            currentTeam.cards.forEach((card, index) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'bg-slate-900/80 border border-slate-700 p-2.5 rounded-xl flex items-center justify-between gap-2';
+                cardDiv.innerHTML = `
+                    <div>
+                        <h4 class="text-xs font-bold text-amber-300">${card.name}</h4>
+                        <p class="text-[10px] text-slate-400">${card.desc}</p>
+                    </div>
+                    <button onclick="useActionCard(${index})" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow transition-all">
+                        Jouer
+                    </button>
+                `;
+                container.appendChild(cardDiv);
+            });
+        }
+
+        // Lancer de dés interactif
+        function rollDice() {
+            if (!gameActive) return;
+
+            const currentTeam = teams[currentTurnIndex];
+
+            // Vérifier si l'équipe passe son tour (prison / hôtel)
+            if (currentTeam.skipTurns > 0) {
+                currentTeam.skipTurns--;
+                showModal('⏸️ Tour Passé', `${currentTeam.name} est bloqué(e) et passe son tour ! (Encore ${currentTeam.skipTurns} tour(s))`);
+                nextTurn();
+                return;
+            }
+
+            // Animation des dés
+            const d1 = Math.floor(Math.random() * 6) + 1;
+            const d2 = Math.floor(Math.random() * 6) + 1;
+            const total = d1 + d2;
+
+            document.getElementById('dice-1').innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][d1 - 1];
+            document.getElementById('dice-2').innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][d2 - 1];
+            document.getElementById('dice-total').innerText = total;
+
+            moveTeam(currentTeam, total);
+        }
+
+        // Déplacement du joueur et application des règles avancées
+        function moveTeam(team, steps) {
+            let newPos = team.position + steps;
+
+            // Règle précise de l'arrivée (Case 63)
+            if (newPos > 63) {
+                const excess = newPos - 63;
+                newPos = 63 - excess; // Recule de l'excédent (ex: 64 -> 62 ou 64-63=1 -> recule de 1 case -> 62)
+                showModal('↩️ Dépassement de la Case 63 !', `${team.name} a dépassé l'arrivée et recule de ${excess} case(s) pour atterrir sur la case ${newPos}.`);
+            }
+
+            team.position = newPos;
+            updateTokensOnBoard();
+
+            // Vérification de la victoire (Case 63 exacte)
+            if (team.position === 63) {
+                triggerVictory(team);
+                return;
+            }
+
+            // Règle personnalisée du chiffre secret
+            // "lorsque par exemple il choisit 5 et qu'il tombe sur la case 25, alors il recule de 10 cases" (unités correspondantes au chiffre choisi)
+            if (team.position % team.secretNumber === 0) {
+                if (team.shield) {
+                    team.shield = false;
+                    showModal('🛡️ Bouclier Activé !', `${team.name} est tombé(e) sur un multiple de son chiffre secret (${team.position}), mais le bouclier a absorbé la pénalité !`);
+                } else {
+                    const penalty = team.secretNumber * 2; // Règle proportionnelle aux unités
+                    team.position = Math.max(1, team.position - penalty);
+                    showModal('⚠️ Piège du Chiffre Secret !', `${team.name} est tombé(e) sur la case ${team.position + penalty} (multiple de ${team.secretNumber}). Pénalité : recul de ${penalty} cases !`);
+                    updateTokensOnBoard();
+                }
+            } else {
+                // Système de points : 1 point obtenu lorsque au bout de 3 fois on ne recule pas de cases
+                team.avoidCount++;
+                if (team.avoidCount >= 3) {
+                    team.points++;
+                    team.avoidCount = 0;
+                    showModal('⭐ Bonus de Stabilité !', `${team.name} a évité les pénalités 3 fois de suite et gagne 1 point bonus !`);
+                }
+            }
+
+            // Vérification des cases spéciales du plateau
+            if (specialCases[team.position]) {
+                const sp = specialCases[team.position];
+                if (sp.type === 'bridge') {
+                    team.position = sp.target;
+                    showModal('🌉 Le Pont !', `${team.name} traverse le pont et avance directement à la case ${sp.target} !`);
+                } else if (sp.type === 'inn') {
+                    team.skipTurns = 1;
+                    showModal('🏨 L’Hôtel', `${team.name} s'arrête à l'hôtel et passe 1 tour.`);
+                } else if (sp.type === 'well') {
+                    showModal('💧 Le Puits', `${team.name} est tombé(e) dans le puits et attend d'être délivré(e).`);
+                } else if (sp.type === 'labyrinth' || sp.type === 'death') {
+                    team.position = sp.target;
+                    showModal('🌀 Case Piège !', `${team.name} subit les effets de ${sp.name} et est renvoyé(e) à la case ${sp.target}.`);
+                }
+                updateTokensOnBoard();
+            }
+
+            // Fin du tour, passer au joueur suivant
+            nextTurn();
+        }
+
+        function nextTurn() {
+            currentTurnIndex = (currentTurnIndex + 1) % teams.length;
+            updateGameUI();
+        }
+
+        // Utilisation des cartes actions
+        function useActionCard(cardIndex) {
+            if (!gameActive) return;
+            const currentTeam = teams[currentTurnIndex];
+            const card = currentTeam.cards.splice(cardIndex, 1)[0];
+
+            if (card.type === 'move') {
+                showModal('🃏 Carte Action Jouée !', `${currentTeam.name} utilise "${card.name}" et avance de ${card.value} cases !`);
+                moveTeam(currentTeam, card.value);
+            } else if (card.type === 'shield') {
+                currentTeam.shield = true;
+                showModal('🃏 Carte Action Jouée !', `${currentTeam.name} active son "${card.name}" !`);
+                renderActionCards();
+            } else if (card.type === 'attack') {
+                // Reculer un autre adversaire
+                const opponents = teams.filter(t => t.id !== currentTeam.id);
+                if (opponents.length > 0) {
+                    const target = opponents[Math.floor(Math.random() * opponents.length)];
+                    target.position = Math.max(1, target.position + card.value);
+                    showModal('🃏 Attaque Stratégique !', `${currentTeam.name} utilise "${card.name}" contre ${target.name} qui recule de 2 cases !`);
+                    updateTokensOnBoard();
+                }
+            }
+        }
+
+        // Gestion de la modale d'événements
+        function showModal(title, desc) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('event-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+        }
+
+        // Victoire finale avec animations de fête
+        function triggerVictory(winner) {
+            gameActive = false;
+            document.getElementById('winner-text').innerHTML = `🎉 L'équipe <strong style="color: ${winner.color};">${winner.name}</strong> remporte la partie avec <span class="text-amber-400">${winner.points} points bonus</span> !`;
+            document.getElementById('victory-modal').classList.remove('hidden');
+        }
+
+        function resetGame() {
+            document.getElementById('victory-modal').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+            document.getElementById('game-status-badge').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
